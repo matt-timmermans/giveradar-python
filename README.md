@@ -22,22 +22,22 @@ gr = Client()  # or Client(api_key="gr_...")
 for c in gr.search("oxfam", country="GB")["results"]:
     print(c["name"], c["trust_score"], c["slug"])
 
-charity = gr.charity("against-malaria-foundation")
-print(charity["registration_number"], charity["annual_revenue"], charity["red_flags"])
+charity = gr.charity("american-national-red-cross")
+print(charity["ein"], charity["annual_revenue"], charity["red_flags"])
 
-gr.verify("1105319", country="GB")      # lookup by registration number or EIN
-gr.financials("against-malaria-foundation")   # filings by year (Pro key)
-gr.news("against-malaria-foundation")
+gr.verify("530196605", "US")            # registration number, charity number or EIN + country
+gr.financials("american-national-red-cross")  # filings by year (Pro key)
+gr.news("american-national-red-cross")
 gr.stats()
 ```
 
-Every method returns the API's JSON as a dict. Errors are typed: `AuthenticationError`, `RateLimitError`, `NotFoundError`, `APIError`.
+Every method returns the API's JSON as a dict. Errors are typed: `AuthenticationError`, `RateLimitError`, `NotFoundError`, `APIError`. `verify()` uses the GiveRadar MCP server's registry lookup, which also works without a key at the anonymous rate.
 
 ## CLI
 
 ```bash
 giveradar search "red cross" --country US
-giveradar verify 13-1644147 --country US
+giveradar verify 530196605 --country US
 giveradar charity american-national-red-cross
 giveradar financials american-national-red-cross
 giveradar news american-national-red-cross

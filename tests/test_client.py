@@ -46,6 +46,16 @@ def test_submit_review_posts_json():
     assert b'"rating": 5' in body and b'"user_role": "donor"' in body
 
 
+@responses.activate
+def test_verify_uses_mcp_tool():
+    import json
+    responses.post("https://giveradar.com/mcp/", json={"jsonrpc": "2.0", "id": 1, "result": {"content": [{"type": "text", "text": json.dumps({"matches": [{"slug": "american-national-red-cross", "name": "American National Red Cross"}], "count": 1})}]}})
+    out = Client(api_key="gr_test").verify("530196605", "us")
+    assert out["count"] == 1 and out["matches"][0]["slug"] == "american-national-red-cross"
+    sent = json.loads(responses.calls[0].request.body)
+    assert sent["params"]["name"] == "verify_charity" and sent["params"]["arguments"] == {"country": "US", "id_value": "530196605"}
+
+
 @pytest.mark.skipif(not os.environ.get("GIVERADAR_API_KEY"), reason="live smoke test needs GIVERADAR_API_KEY")
 def test_live_stats():
     out = Client().stats()

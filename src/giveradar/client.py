@@ -88,8 +88,39 @@ class Client:
                 "comment": comment, "user_role": user_role}
         return self._request("POST", f"/charity/{slug}/reviews/", json=body)
 
-    # ---- Convenience ------------------------------------------------------
-    def verify(self, registration_number: str, country: Optional[str] = None) -> Dict[str, Any]:
-        """Look a charity up by registration number or EIN (search restricted to that
-        identifier). Returns the search response; check ``count``."""
-        return self.search(registration_number.strip(), country=country)
+    # ---- Registry lookup (via the MCP server) ------------------------------
+    MCP_URL = "https://giveradar.com/mcp/"
+
+    def verify(self, id_value: str, country: str) -> Dict[str, Any]:
+        """Look a charity up by registration number, charity number or EIN in a
+        given country (ISO 3166-1 alpha-2). Uses the GiveRadar MCP server's
+        ``verify_charity`` tool, which matches on the official identifier fields
+        (the REST search matches names and EINs only). Works without a key at the
+        anonymous rate (10/day per IP); a key raises the limit.
+
+        Returns ``{"matches": [...], "count": n}`` or ``{"match": None, ...}``."""
+        import json as _json
+        payload = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                   "params": {"name": "verify_charity",
+                              "arguments": {"country": country.strip().upper(), "id_value": id_value.strip()}}}
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        resp = self._session.post(self.MCP_URL, json=payload, headers=headers, timeout=self.timeout)
+        if resp.status_code == 429:
+            raise RateLimitError("MCP quota reached (10/day anonymous). Pass an API key to raise it.")
+        if resp.status_code >= 400:
+            raise APIError(resp.status_code, resp.text[:200])
+        data = resp.json()
+        if "error" in data:
+            raise APIError(400, str(data["error"].get("message", data["error"])))
+        result = data.get("result") or {}
+        if result.get("structuredContent"):
+            return result["structuredContent"]
+        for part in result.get("content") or []:
+            if part.get("type") == "text":
+                try:
+                    return _json.loads(part["text"])
+                except ValueError:
+                    return {"text": part["text"]}
+        return result

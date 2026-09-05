@@ -71,19 +71,23 @@ def main(argv=None) -> int:
 
     s = sub.add_parser("search", help="search charities by name or EIN")
     s.add_argument("query"); s.add_argument("--country", help="2-letter ISO code")
-    v = sub.add_parser("verify", help="look up by registration number or EIN")
-    v.add_argument("number"); v.add_argument("--country", help="2-letter ISO code")
+    v = sub.add_parser("verify", help="look up by registration number, charity number or EIN")
+    v.add_argument("number"); v.add_argument("--country", required=True, help="2-letter ISO code (required)")
     for name, helptext in (("charity", "full profile by slug"), ("financials", "filings by slug (Pro)"), ("news", "news by slug")):
         sp = sub.add_parser(name, help=helptext); sp.add_argument("slug")
     sub.add_parser("stats", help="platform totals")
+    for sp in sub.choices.values():  # allow --json / --key after the subcommand too
+        sp.add_argument("--json", action="store_true", dest="json_sub", help=argparse.SUPPRESS)
+        sp.add_argument("--key", dest="key_sub", help=argparse.SUPPRESS)
 
     a = p.parse_args(argv)
-    gr = Client(api_key=a.key)
+    a.json = a.json or getattr(a, "json_sub", False)
+    gr = Client(api_key=a.key or getattr(a, "key_sub", None))
     try:
         if a.cmd == "search":
             out = gr.search(a.query, country=a.country)
         elif a.cmd == "verify":
-            out = gr.verify(a.number, country=a.country)
+            out = gr.verify(a.number, a.country)
         elif a.cmd == "charity":
             out = gr.charity(a.slug)
         elif a.cmd == "financials":
@@ -99,8 +103,15 @@ def main(argv=None) -> int:
     if a.json:
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0
-    if a.cmd in ("search", "verify"):
+    if a.cmd == "search":
         _print_summaries(out.get("results", []))
+    elif a.cmd == "verify":
+        matches = out.get("matches") or []
+        if not matches:
+            print(out.get("message") or "No listed charity matches that identifier.")
+        for m in matches:
+            print(f"{m.get('name','')}  [{m.get('slug','')}]  {m.get('country','') or m.get('country_code','')}  "
+                  f"integrity {m.get('integrity_score', m.get('trust_score', '-'))}/100  {m.get('url') or 'https://giveradar.com/charity/' + str(m.get('slug','')) + '/'}")
     elif a.cmd == "charity":
         _print_charity(out)
     elif a.cmd == "financials":
