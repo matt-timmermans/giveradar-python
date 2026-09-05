@@ -45,10 +45,19 @@ class Client:
                                          json=json, headers=headers, timeout=self.timeout)
         except requests.RequestException as e:
             raise APIError(0, f"network error: {e.__class__.__name__}: {e}") from e
+        def _detail():
+            try:
+                d = resp.json()
+                return str(d.get("detail") or d.get("error") or "").strip()
+            except ValueError:
+                return ""
         if resp.status_code in (401, 403):
-            raise AuthenticationError(f"API key rejected (HTTP {resp.status_code}). Check the key or get one at https://giveradar.com/api/keys/")
+            msg = _detail()
+            if "limit" in msg.lower() or "quota" in msg.lower():
+                raise RateLimitError(msg + " Pro keys allow 10,000/day: https://giveradar.com/api/")
+            raise AuthenticationError((msg + " " if msg else "") + f"(HTTP {resp.status_code}). Get a key at https://giveradar.com/api/keys/")
         if resp.status_code == 429:
-            raise RateLimitError("Daily request limit reached. Free keys allow 10/day; Pro allows 10,000/day: https://giveradar.com/api/")
+            raise RateLimitError((_detail() or "Daily request limit reached. Free keys allow 10/day") + "; Pro allows 10,000/day: https://giveradar.com/api/")
         if resp.status_code == 404:
             raise NotFoundError(f"Not found: {path}")
         if resp.status_code >= 400:
