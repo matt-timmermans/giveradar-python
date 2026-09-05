@@ -40,8 +40,11 @@ class Client:
                 "Free keys (10 requests/day): https://giveradar.com/api/keys/")
         url = f"{self.base_url}/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        resp = self._session.request(method, url, params={k: v for k, v in (params or {}).items() if v is not None},
-                                     json=json, headers=headers, timeout=self.timeout)
+        try:
+            resp = self._session.request(method, url, params={k: v for k, v in (params or {}).items() if v is not None},
+                                         json=json, headers=headers, timeout=self.timeout)
+        except requests.RequestException as e:
+            raise APIError(0, f"network error: {e.__class__.__name__}: {e}") from e
         if resp.status_code in (401, 403):
             raise AuthenticationError(f"API key rejected (HTTP {resp.status_code}). Check the key or get one at https://giveradar.com/api/keys/")
         if resp.status_code == 429:
@@ -106,7 +109,10 @@ class Client:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
-        resp = self._session.post(self.MCP_URL, json=payload, headers=headers, timeout=self.timeout)
+        try:
+            resp = self._session.post(self.MCP_URL, json=payload, headers=headers, timeout=self.timeout)
+        except requests.RequestException as e:
+            raise APIError(0, f"network error: {e.__class__.__name__}: {e}") from e
         if resp.status_code == 429:
             raise RateLimitError("MCP quota reached (10/day anonymous). Pass an API key to raise it.")
         if resp.status_code >= 400:

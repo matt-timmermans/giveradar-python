@@ -31,7 +31,7 @@ gr.news("american-national-red-cross")
 gr.stats()
 ```
 
-Every method returns the API's JSON as a dict. Errors are typed: `AuthenticationError`, `RateLimitError`, `NotFoundError`, `APIError`. `verify()` uses the GiveRadar MCP server's registry lookup, which also works without a key at the anonymous rate.
+Every method returns the API's JSON as a dict. Financial fields (revenue, expenses, filings, officers) need a Pro key; free keys get the profile, registration, category and integrity score. Errors are typed: `AuthenticationError`, `RateLimitError`, `NotFoundError`, `APIError`. `verify()` uses the GiveRadar MCP server's registry lookup, which also works without a key at the anonymous rate.
 
 ## CLI
 
